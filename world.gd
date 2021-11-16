@@ -140,7 +140,6 @@ func drawmove(v):
 
 	
 func change_color(col):
-	print("WHEHE")
 	level.set("custom_colors/default_color", col)
 
 func draw_ghost():
@@ -155,6 +154,7 @@ func _draw():
 	
 func domoves(moves_, dead=false):
 	var time = 0.3
+	var last_spot = null 
 	if dead:
 		time = 0.07
 		change_color(col_red)		
@@ -168,27 +168,36 @@ func domoves(moves_, dead=false):
 		lerpcam(m)
 		# p.position += m*gridsize
 		var pp = pos + m
-		if not map[pp.y][pp.x] in "b|+-":
+		last_spot = map[pp.y][pp.x]
+		if not map[pp.y][pp.x] in "Ob|+-":
 			pos = pp
 			if not dead:
 				allmoves.append(m)
 			drawmove(m)
 			yield(get_tree().create_timer(time),"timeout")
 		elif not dead:
+			
 			kill_player()
 			return
 	
 	
 	#imove = true
-	check_for_doors(pos)
+	var door = check_for_doors(pos)
 	# reset stuff here
 	if dead:
+		standon  = "."
+		
 		imove = true 
 		allmoves = []
 		change_color(col_start)		
 		moves = []
 		movelabel.text = ""
-		originalmovelabel.text = ""		
+		originalmovelabel.text = ""
+	
+	if not door and not dead:
+		yield(get_tree().create_timer(0.5),"timeout")
+		print("what")
+		kill_player()
 		
 func mirror(moves, axis):
 	var mm = []
@@ -301,6 +310,8 @@ func check_for_doors(_pos):
 			
 			itemmenu = true
 			itemcursor = 0
+			return true
+	return false
 
 func lerpcam(dir):
 	if dir != Vector2():
@@ -395,4 +406,3 @@ func _process(delta):
 			check_for_doors(mv)
 		else:
 			kill_player()
-			
