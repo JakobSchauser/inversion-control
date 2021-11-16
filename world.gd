@@ -54,7 +54,7 @@ var cursor = 0
 var itemcursor = 0
 onready var itemlabel = $items
 var itemmenu = false
-var current_items = ["REPEAT","REVERSE","FLIPX", "FLIPY","FLIPXY"]
+var current_items = ["REPEAT"]
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	load_level()
@@ -195,10 +195,21 @@ func domoves(moves_, dead=false):
 		originalmovelabel.text = ""
 	
 	if not door and not dead:
-		yield(get_tree().create_timer(0.5),"timeout")
-		print("what")
-		kill_player()
-		
+		if last_spot == " ":
+			yield(get_tree().create_timer(0.5),"timeout")
+			kill_player()
+		else:
+			if last_spot == "1":
+				current_items.append("REVERSE")
+			elif last_spot == "2":
+				current_items.append("FLIPX")
+			elif last_spot == "3":
+				current_items.append("FLIPY")
+			elif last_spot == "4":
+				current_items.append("FLIPXY")
+			standon  = " "
+			yield(get_tree().create_timer(2),"timeout")
+			kill_player()
 func mirror(moves, axis):
 	var mm = []
 	for m in moves:
@@ -253,9 +264,11 @@ func transform_moves(moves, type):
 	
 func slowwrite(label,speed = 0.02):
 	if label.visible_characters < len(label.text) and label.visible_characters != -1:
-		label.visible_characters += 4
+		label.visible_characters += 12
 		yield(get_tree().create_timer(speed),"timeout")
 		slowwrite(label,speed)
+	else:
+		label.visible_characters = -1
 	
 func make_moves(moves, move_types):
 	var m = moves.duplicate()
@@ -283,7 +296,7 @@ func vec2dir(vec):
 	return "down"
 
 func update_printlist(_moves):
-	printlist = ["TRANSFORMED"]
+	printlist = ["MOVES:"]
 	var i = 0
 	for m in _moves:
 		var cc = " "
@@ -310,6 +323,12 @@ func check_for_doors(_pos):
 			
 			itemmenu = true
 			itemcursor = 0
+			
+			level.visible_characters = 0
+			slowwrite(level,0.0001)	
+			movelabel.visible_characters = 0
+			slowwrite(movelabel,0.1)
+			
 			return true
 	return false
 
@@ -368,8 +387,6 @@ func _process(delta):
 	elif (Input.is_action_just_pressed("ui_right")):
 		move.x = 1
 	elif (Input.is_action_just_pressed("ui_accept")):
-		level.visible_characters = 0
-		slowwrite(level,0.0001)	
 		print("Here")
 		if debug:
 			domoves(make_moves(moves, [REPEAT]))

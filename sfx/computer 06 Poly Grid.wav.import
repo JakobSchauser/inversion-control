@@ -1,0 +1,21 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/computer 06 Poly Grid.wav-a2a1f82d9bf72dec1222e265de87c195.sample"
+
+[deps]
+
+source_file="res://sfx/computer 06 Poly Grid.wav"
+dest_files=[ "res://.import/computer 06 Poly Grid.wav-a2a1f82d9bf72dec1222e265de87c195.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop=false
+compress/mode=0
