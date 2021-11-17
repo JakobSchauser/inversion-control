@@ -19,6 +19,28 @@ var ONLYY="ONLYY"
 var SWAP="SWAP"
 
 
+var globaldead = false
+
+
+var menuselectplayer = AudioStreamPlayer.new()
+var writeplayer = AudioStreamPlayer.new()
+
+
+var walksound = preload("sfx/compute.wav")
+var deathsound = preload("sfx/sfx1.wav")
+var deathmovesound = preload("sfx/sfx4.wav")
+var deletesound = preload("sfx/sfx3.wav")
+var pickupsound = preload("sfx/sfx7.wav")
+var menuselectsound = preload("sfx/sfx6.wav")
+var menumovesound = preload("sfx/sfx5.wav")
+var printsound = preload("sfx/computer.wav")
+
+
+onready var audio = $AudioStreamPlayer
+
+
+var running_intro = true
+
 onready var cam = $Camera2D
 onready var campos = cam.position
 
@@ -29,6 +51,8 @@ var width = 64
 
 onready var movelabel = $movelist
 var printlist = []
+
+onready var titlelabel = $title
 
 onready var originalmovelabel = $originalMoves
 var transformedprintlist = []
@@ -57,6 +81,11 @@ var itemmenu = false
 var current_items = ["REPEAT"]
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	add_child(menuselectplayer)
+	add_child(writeplayer)
+	writeplayer.stream = printsound
+	
+	
 	load_level()
 	drawmove(Vector2())
 	movelabel.text = ""
@@ -65,8 +94,9 @@ func _ready():
 	update_printlist([])
 	update_original_printlist([])
 	
-	
-	#pass # Replace with function body.
+	intro()
+	#imove = true
+	#running_intro = false
 
 func load_level():
 	var file = File.new()
@@ -123,24 +153,29 @@ func drawmove(v):
 	
 	
 	
-	var y = 10
-	var x = 30
-	var offy = floor((pos.y + min(0,v.y))/y)*y 
-	var offx = floor((pos.x + min(0,v.x))/x)*x
+	#_______
 	
-	offy = pos.y - y/2
+	var y = 10
+	var x = 10
+	var offy = floor((pos.y + min(0,v.y))/y)*y 
+	var offx = floor((pos.x + min(0,v.x)) /x)*x
+	
+	# offy = pos.y - y/2
 	#offx = pos.x - x/2
 	
 	
 	var snit = M.slice(offy,offy+y).duplicate()
 	var snit2 = ""
 	for s in snit:
-		snit2 += s.substr(offx,x+1) + "\n"
+		snit2 += s.substr(offx-10,x+1 + 20) + "\n"
 	level.text = snit2
-
+	#_________
+	
 	
 func change_color(col):
 	level.set("custom_colors/default_color", col)
+	movelabel.set("custom_colors/default_color", col)
+	titlelabel.set("custom_colors/default_color", col)
 
 func draw_ghost():
 	var sofar = Vector2()
@@ -161,10 +196,21 @@ func domoves(moves_, dead=false):
 	imove = false
 	var i = 0
 	for m in moves_:
-		i += 1
-		cursor = i
-		update_printlist(moves_)
+		if dead:
+			audio.stream = deathmovesound
+		else:
+			audio.stream = walksound
+		audio.play()
 		
+		i += 1
+		
+		
+		if not dead:
+			cursor = i
+			update_printlist(moves_)
+		else:
+			cursor = len(allmoves)-i
+			update_printlist(allmoves.slice(0,cursor))
 		lerpcam(m)
 		# p.position += m*gridsize
 		var pp = pos + m
@@ -193,12 +239,16 @@ func domoves(moves_, dead=false):
 		moves = []
 		movelabel.text = ""
 		originalmovelabel.text = ""
-	
+		globaldead = false
+		update_printlist(moves)
+		
 	if not door and not dead:
 		if last_spot == " ":
 			yield(get_tree().create_timer(0.5),"timeout")
 			kill_player()
 		else:
+			audio.stream = pickupsound
+			audio.play()
 			if last_spot == "1":
 				current_items.append("REVERSE")
 			elif last_spot == "2":
@@ -210,6 +260,8 @@ func domoves(moves_, dead=false):
 			standon  = " "
 			yield(get_tree().create_timer(2),"timeout")
 			kill_player()
+			
+		
 func mirror(moves, axis):
 	var mm = []
 	for m in moves:
@@ -261,10 +313,85 @@ func transform_moves(moves, type):
 			m = new
 	return m
 	
+func play_sound(s):
+	var a = AudioStreamPlayer.new()
+	a.stream = s
+	add_child(a)
+	a.play()
+	yield(a, "finished")
+	a.queue_free()
+
+
+
+func write(st):
+	var stt = "" 
+	for s in st:
+		if s != "#":
+			stt += s
 	
+	level.text = stt.to_upper()
+	
+	var j = 0
+	for s in range(len(st)):
+		var time = 0.01
+		var thelastjthatwas = j
+		j += 1
+		if st[s] == "\n":
+			j -= 1
+			time = 0.5
+		if st[s] == "#":
+			time = 0.5
+			j -= 1
+		if st[s] == ".":
+			time = 0.2
+		
+		
+		
+		if j != thelastjthatwas and j % 1 == 0 and true:
+			play_sound(printsound)
+		
+			
+		
+		yield(get_tree().create_timer(time),"timeout")
+		level.visible_characters = j 
+	
+	print("whatt")
+	running_intro = false
+	imove = true
+	level.visible_characters = -1
+	drawmove(Vector2())
+
+	level.visible_characters = 0
+	slowwrite(level,0.0001)	
+	movelabel.visible_characters = 0
+	slowwrite(movelabel,0.1)
+	
+
+func intro():
+	titlelabel.text = ""
+	movelabel.text = ""
+	running_intro = true
+	
+	imove = false
+	level.visible_characters = 0
+	
+	yield(get_tree().create_timer(2),"timeout")
+	write("\nbooting systems#...#\nbooting subsystems#...#\nuser name:# schrunkin#\npassword:# ********#\nincorrect password,# try again.#\nuser name:# schrunkin#\npassword:## ***##\naccess granted.#\nloading gwj2021 entry#...###")
+	
+	
+func intro_text(t, spd=0.02):
+	level.text = t.to_upper()
+	slowwrite(level, spd)
+	
+
+
+
+
+
 func slowwrite(label,speed = 0.02):
 	if label.visible_characters < len(label.text) and label.visible_characters != -1:
 		label.visible_characters += 12
+		play_sound(printsound)
 		yield(get_tree().create_timer(speed),"timeout")
 		slowwrite(label,speed)
 	else:
@@ -277,6 +404,9 @@ func make_moves(moves, move_types):
 	return m
 
 func kill_player():
+	globaldead = true
+	audio.stream = deathsound 
+	audio.play()
 	standon = " "
 	domoves(make_moves(allmoves, [REVERSE, FLIPX, FLIPY]), true)
 
@@ -296,15 +426,30 @@ func vec2dir(vec):
 	return "down"
 
 func update_printlist(_moves):
-	printlist = ["MOVES:"]
+	printlist = []
 	var i = 0
 	for m in _moves:
 		var cc = " "
 		if i == cursor:
 			cc = ">"
-		i += 1		
+		i += 1
 		printlist.append(cc + vec2dir(m).to_upper())
-	movelabel.text = make_str(printlist)
+
+	var words_per_line = 10
+		
+	var firsthalf = printlist.slice(0,words_per_line-1)
+	var secondhalf = printlist.slice(words_per_line,-1)
+	
+	var finalrows = ["MOVES:"]
+	for fh in range(len(firsthalf)):
+		if fh < len(secondhalf):
+			var ws = ""
+			for f in range(7-len(firsthalf[fh])):
+				ws += " "
+			finalrows.append(firsthalf[fh] + ws + secondhalf[fh])
+		else:
+			finalrows.append(firsthalf[fh])
+	movelabel.text = make_str(finalrows)
 
 func update_original_printlist(_moves):
 	printlist = ["MOVES"]
@@ -340,9 +485,24 @@ func lerpcam(dir):
 
 
 func _process(delta):
+	if running_intro:
+		return
 	if (Input.is_action_just_pressed("restart")):
 		kill_player()
 	
+	
+	if imove:
+		titlelabel.text = "RECORDING NEW MOVES"
+	if itemmenu:
+		titlelabel.text = "CHOOSE A TRANSFORMATION"
+	elif not imove and globaldead:
+		titlelabel.text = "RETURNING"
+	elif not imove:
+		titlelabel.text = "PLAYBACK OF MOVES"
+	elif len(moves) > 19:
+		titlelabel.text = "OUT OF MEMORY"
+			
+		
 	lerpcam(Vector2())
 	if itemmenu:
 		itemlabel.show()
@@ -359,19 +519,33 @@ func _process(delta):
 		itemlabel.text = pt
 		update_printlist(make_moves(moves, [current_items[itemcursor]]))
 		if(Input.is_action_just_pressed("ui_left")):
+			var bf = itemcursor
 			itemcursor = max(0,itemcursor-1)
+			if bf != itemcursor:
+				audio.stream = menumovesound
+				audio.play()
+				
 		elif (Input.is_action_just_pressed("ui_right")):
+			var bf = itemcursor						
 			itemcursor = min(len(current_items)-1,itemcursor+1)
+			if bf != itemcursor:
+				audio.stream = menumovesound
+				audio.play()
 		elif (Input.is_action_just_pressed("ui_accept")):
+			menuselectplayer.stream = menuselectsound
+			menuselectplayer.play()
 			itemmenu = false
 			domoves(make_moves(moves, [current_items[itemcursor]]))
 			itemlabel.text = ""
 			
 			
 		return
+		
 	if Input.is_action_just_pressed("debug"):
 		debug = !debug
 		imove = debug
+		
+		
 	if not imove:
 		return
 		
@@ -397,6 +571,8 @@ func _process(delta):
 	elif (Input.is_action_just_pressed("save")):
 		standon = "s"
 	elif (Input.is_action_just_pressed("backspace")):
+		audio.stream = deletesound
+		audio.play()
 		var mmm = moves.back()
 		if mmm:
 			pos -= mmm
@@ -407,8 +583,15 @@ func _process(delta):
 			drawmove(-mmm)
 			update_printlist(moves)
 			update_original_printlist(moves)
-					
+	
+	if len(moves) > 19:
+		move = Vector2()
+	
 	if move != Vector2():
+		audio.stream = walksound
+		audio.pitch_scale = rand_range(1,1.01)
+		audio.play()
+		
 		lerpcam(-2*move)
 		var mv = pos + move
 		
