@@ -22,6 +22,8 @@ var SWAP="SWAP"
 var globaldead = false
 
 
+var deletion = false
+
 var menuselectplayer = AudioStreamPlayer.new()
 var writeplayer = AudioStreamPlayer.new()
 
@@ -35,6 +37,13 @@ var menuselectsound = preload("sfx/sfx6.wav")
 var menumovesound = preload("sfx/sfx5.wav")
 var printsound = preload("sfx/computer.wav")
 
+
+
+onready var glowint = $WorldEnvironment.environment.glow_intensity
+onready var glowstr = $WorldEnvironment.environment.glow_strength
+onready var warp = $CRT.material.get_shader_param("warp_amount")
+onready var abe = $CRT.material.get_shader_param("aberration")
+		
 
 onready var audio = $AudioStreamPlayer
 
@@ -58,6 +67,7 @@ onready var originalmovelabel = $originalMoves
 var transformedprintlist = []
 
 var map = []
+var time = 0
 
 var col_start = Color("#06813c")
 var col_red = Color("#e02a1d")
@@ -66,7 +76,10 @@ var textcol = col_start
 
 var standon = " "
 
-var pos = Vector2(21,25)
+var pos = Vector2(31,25)
+#var endpos = Vector2(31,25-10)
+var endpos = Vector2(15,1)
+
 var gridsize = 64 
 
 onready var level = $label
@@ -94,12 +107,13 @@ func _ready():
 	update_printlist([])
 	update_original_printlist([])
 	
-	intro()
-	#imove = true
-	#running_intro = false
+	#intro()
+	imove = true
+	running_intro = false
 
 func load_level():
 	var file = File.new()
+	
 	
 	var first = true
 	file.open("res://map.txt", File.READ)
@@ -128,17 +142,46 @@ func load_level():
 func charpos(pos):
 	return pos.x + width*pos.y
 
+func get_cell(pos):
+	return Vector2(floor(pos.x / 10)*10, floor(pos.y / 10) *10)
+
+
 func drawmove(v):
+	# var d = sqrt((endpos.x - pos.x)*(endpos.x - pos.x) + (endpos.y - pos.y)*(endpos.y - pos.y))
+	
+	if get_cell(pos) == get_cell(endpos):
+		
+		$WorldEnvironment.environment.glow_intensity = 1.1
+		$WorldEnvironment.environment.glow_strength = 0.9
+		$CRT.material.set_shader_param("warp_amount", 5) 
+		$CRT.material.set_shader_param("aberration", 0.15) 
+		
+	
+	
+	#var maxd = sqrt(10)
+	#if d <= maxd:
+	#	$WorldEnvironment.environment.glow_intensity = lerp($WorldEnvironment.environment.glow_intensity,(maxd-d)/maxd*30,0.5)
+	#	$WorldEnvironment.environment.glow_strength =  lerp($WorldEnvironment.environment.glow_strength,(maxd-d)/maxd*1.3,0.5)
+		#$CRT.material.set_shader_param("warp_amount", sqrt(maxd-d)/maxd*10 + warp) 
+		#$CRT.material.set_shader_param("aberration", sqrt(maxd-d)/maxd*0.4 + abe) 
+		
+		
+	map[endpos.y][endpos.x] = "$"
 	var t = map
+	
+	if deletion:
+		standon = " "
+		deletion = false
 	t[pos.y-v.y][pos.x-v.x] = standon
 	var S = t[pos.y][pos.x]
-	if S == ".":
-		 standon = " "
-	elif S == " ":
+	
+
+	if S == " ":
 		standon = "."
 	else:
 		standon = S
-	t[pos.y][pos.x] = "@"
+		
+	t[pos.y][pos.x] = "."#@
 	
 	var M = t
 	
@@ -197,6 +240,7 @@ func domoves(moves_, dead=false):
 	var i = 0
 	for m in moves_:
 		if dead:
+			deletion = true
 			audio.stream = deathmovesound
 		else:
 			audio.stream = walksound
@@ -211,11 +255,11 @@ func domoves(moves_, dead=false):
 		else:
 			cursor = len(allmoves)-i
 			update_printlist(allmoves.slice(0,cursor))
-		lerpcam(m)
+		#lerpcam(m)
 		# p.position += m*gridsize
 		var pp = pos + m
 		last_spot = map[pp.y][pp.x]
-		if not map[pp.y][pp.x] in "Ob|+-":
+		if not map[pp.y][pp.x] in "#Ob|+-":
 			pos = pp
 			if not dead:
 				allmoves.append(m)
@@ -355,7 +399,7 @@ func write(st):
 		yield(get_tree().create_timer(time),"timeout")
 		level.visible_characters = j 
 	
-	print("whatt")
+	# print("whatt")
 	running_intro = false
 	imove = true
 	level.visible_characters = -1
@@ -405,8 +449,7 @@ func make_moves(moves, move_types):
 
 func kill_player():
 	globaldead = true
-	audio.stream = deathsound 
-	audio.play()
+	play_sound(deathsound)
 	standon = " "
 	domoves(make_moves(allmoves, [REVERSE, FLIPX, FLIPY]), true)
 
@@ -466,6 +509,9 @@ func check_for_doors(_pos):
 			drawmove(l*2)
 			allmoves.append(l*2)
 			
+			# timer = Timer.new()
+			flick()
+			
 			itemmenu = true
 			itemcursor = 0
 			
@@ -484,7 +530,18 @@ func lerpcam(dir):
 		cam.position = lerp(cam.position,campos,0.1)
 
 
+func flick():
+	itemlabel.hide()
+	yield(get_tree().create_timer(1),"timeout")
+	itemlabel.show()	
+	slowwrite(itemlabel, 0.0001)
+	play_sound(menumovesound)
+
 func _process(delta):
+	
+	#if Input.is_action_just_pressed("b"):
+	#	drawmove(Vector2())
+	time += delta
 	if running_intro:
 		return
 	if (Input.is_action_just_pressed("restart")):
@@ -500,12 +557,11 @@ func _process(delta):
 	elif not imove:
 		titlelabel.text = "PLAYBACK OF MOVES"
 	elif len(moves) > 19:
-		titlelabel.text = "OUT OF MEMORY"
+		titlelabel.text = "OUT OF MEMORY - PRESS BACKSPACE"
 			
 		
 	lerpcam(Vector2())
 	if itemmenu:
-		itemlabel.show()
 		var pt = ""
 		var i = 0
 		for it in current_items:
@@ -518,25 +574,26 @@ func _process(delta):
 			pt += cc + it + "	"
 		itemlabel.text = pt
 		update_printlist(make_moves(moves, [current_items[itemcursor]]))
-		if(Input.is_action_just_pressed("ui_left")):
-			var bf = itemcursor
-			itemcursor = max(0,itemcursor-1)
-			if bf != itemcursor:
-				audio.stream = menumovesound
-				audio.play()
-				
-		elif (Input.is_action_just_pressed("ui_right")):
-			var bf = itemcursor						
-			itemcursor = min(len(current_items)-1,itemcursor+1)
-			if bf != itemcursor:
-				audio.stream = menumovesound
-				audio.play()
-		elif (Input.is_action_just_pressed("ui_accept")):
-			menuselectplayer.stream = menuselectsound
-			menuselectplayer.play()
-			itemmenu = false
-			domoves(make_moves(moves, [current_items[itemcursor]]))
-			itemlabel.text = ""
+		if itemlabel.visible:
+			if(Input.is_action_just_pressed("ui_left")):
+				var bf = itemcursor
+				itemcursor = max(0,itemcursor-1)
+				if bf != itemcursor:
+					audio.stream = menumovesound
+					audio.play()
+					
+			elif (Input.is_action_just_pressed("ui_right")):
+				var bf = itemcursor						
+				itemcursor = min(len(current_items)-1,itemcursor+1)
+				if bf != itemcursor:
+					audio.stream = menumovesound
+					audio.play()
+			elif (Input.is_action_just_pressed("ui_accept")):
+				menuselectplayer.stream = menuselectsound
+				menuselectplayer.play()
+				itemmenu = false
+				domoves(make_moves(moves, [current_items[itemcursor]]))
+				itemlabel.text = ""
 			
 			
 		return
@@ -572,12 +629,12 @@ func _process(delta):
 		standon = "s"
 	elif (Input.is_action_just_pressed("backspace")):
 		audio.stream = deletesound
+		deletion = true
 		audio.play()
 		var mmm = moves.back()
 		if mmm:
 			pos -= mmm
-			if standon == ".":
-				standon = " " 
+			standon = " "
 			allmoves.pop_back()
 			moves.pop_back()
 			drawmove(-mmm)
@@ -592,11 +649,11 @@ func _process(delta):
 		audio.pitch_scale = rand_range(1,1.01)
 		audio.play()
 		
-		lerpcam(-2*move)
+		#lerpcam(-2*move)
 		var mv = pos + move
 		
 		var goto = map[mv.y][mv.x]
-		if not goto in "b|+-." or debug:
+		if not goto in "#b|+-." or debug:
 			pos += move
 			moves.append(move)
 			allmoves.append(move)
@@ -605,4 +662,5 @@ func _process(delta):
 			update_original_printlist(moves)
 			check_for_doors(mv)
 		else:
+			lerpcam(-move*20)
 			kill_player()

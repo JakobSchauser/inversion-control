@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/computerhum.mp3-cf2f26821a2ff717a7a938adda39c5de.mp3str"
+
+[deps]
+
+source_file="res://sfx/computerhum.mp3"
+dest_files=[ "res://.import/computerhum.mp3-cf2f26821a2ff717a7a938adda39c5de.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
