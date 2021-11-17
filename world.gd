@@ -107,9 +107,9 @@ func _ready():
 	update_printlist([])
 	update_original_printlist([])
 	
-	#intro()
-	imove = true
-	running_intro = false
+	intro()
+	#imove = true
+	#running_intro = false
 
 func load_level():
 	var file = File.new()
